@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/CommunicationStrings.iml" filepath="$PROJECT_DIR$/CommunicationStrings.iml" />
+      <module fileurl="file://$PROJECT_DIR$/Communication-Code.iml" filepath="$PROJECT_DIR$/Communication-Code.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
     </modules>
   </component>
