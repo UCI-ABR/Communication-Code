@@ -2,6 +2,7 @@ package com.example.android.communicationstrings;
 
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.util.Log;
 
 import static android.R.attr.logo;
@@ -30,9 +31,8 @@ public class MainActivity extends AppCompatActivity {
 
     //for both:
     boolean initialFieldScan = true,
-            hasGPSCoords = false,
             isMannequinFound = false,
-            hasLIDAR = false;
+            scanMode = true;
 
     byte hex = (byte)0x90;
 
@@ -47,17 +47,17 @@ public class MainActivity extends AppCompatActivity {
 
         fromMinion = "NAME: CARLOS, " +
                 "GPS[LAT:1.11, LON:1.11], " +
-                "SEARCHING: true" +
                 "MANN: true" +
-                "LIDAR: true" +
                 "LGPS[LAT:1.55, LON:1.55];";
+
+        fromMaster = "AUTOMODE: true" +
+                     "SCANMODE: true" +
+                     "DEST:[LAT:1.2555, LON:17.55]";
 
         receive_from_m();
         Log.i("TEST", "NAME: " + minion + ", " +
                 "GPS" + "[" + gps_coords[0] + ", " + gps_coords[1] + "], " +
-                "SEARCHING: " + hasGPSCoords +
                 "MANN: " + isMannequinFound + ", " +
-                "LIDAR: " + hasLIDAR + ", " +
                 "LGPS: " + gpsList[0]);
 
 //        send_to_M();
@@ -75,69 +75,51 @@ public class MainActivity extends AppCompatActivity {
 
 
     //receives info in form of string & parses to variables' appropriate types
-    //receives info in form of string & parses to variables' appropriate types
     void receive_from_m (String data) {
-        //Add actual receive code here (receives string)
-
         String string_name = data.substring(data.indexOf("NAME"),data.indexOf("GPS")),
                 string_gps = data.substring(data.indexOf("GPS"),data.indexOf("MANN")),
-                string_mann = data.substring(data.indexOf("MANN"),data.indexOf("SEARCH")),
-                string_search = data.substring(data.indexOf("SEARCH"),data.indexOf("LIDAR")),
-                string_lidar = data.substring(data.indexOf("LIDAR"),data.indexOf("LGPS")),
+                string_mann = data.substring(data.indexOf("MANN"),data.indexOf("LGPS")),
                 string_lidarGPS = data.substring(data.indexOf("LGPS"),data.length());
-
-        //get GPS coordinates from message string
-        gps_coords = getCoords(string_gps);
-
-        //get mannequin boolean
-        isMannequinFound = string_mann.contains("true");
 
         //get name of minion that sent string
         string_name = string_name.substring(string_name.indexOf(":")+2,string_name.indexOf(","));
 
+        // Set robot name from message string
         switch (string_name) {
             case "DOC":
-                minion = Robots.DOC;
                 robot = doc;
                 break;
             case "MR":
-                minion = Robots.MR;
                 robot = mr;
                 break;
             case "MRS":
-                minion = Robots.MRS;
                 robot = mrs;
                 break;
             case "CARLITO":
-                minion = Robots.CARLITO;
                 robot = carlito;
                 break;
             case "CARLOS":
-                minion = Robots.CARLOS;
                 robot = carlos;
                 break;
             case "CARLY":
-                minion = Robots.CARLY;
                 robot = carly;
                 break;
             case "CARLA":
-                minion = Robots.CARLA;
                 robot = carla;
                 break;
             case "CARLETON":
-                minion = Robots.CARLETON;
                 robot = carleton;
                 break;
             default:
                 Log.i("ERROR","Invalid robot name. Refer to Robot name list in code.");
         }
 
-        robot.setLocation(gps_coords);
-        robot.setStatus(isMannequinFound);
+        // Set robot location from message string
+        robot.setLocation(getCoords(string_gps));
 
+        // Set mannequin found status from message string
+        robot.setStatus(string_mann.contains("true"));
         /*
-        //get LIDAR boolean
-        hasLIDAR = string_lidar.contains("true");
 
         //add LIDAR gps calculation of victim to list of gps coordinates
         if (hasLIDAR) {
@@ -152,9 +134,11 @@ public class MainActivity extends AppCompatActivity {
         */
     }
 
-    //send grid # for m to search
-    void send_to_m (Robots name, boolean mode, boolean scanMode, double[] gps_coords) {
-        toMinion = "AUTOMODE: " + mode + "GOTO[LAT:" + gps_coords[0] + ", LON:" + gps_coords[1] + "], ";
+    //sends instructions to m
+    void send_to_m (Robots name, boolean mode, boolean scanMode, double[] dest) {
+        String toMinion = "AUTOMODE: " + mode +
+                "SCANMODE: " + scanMode +
+                "DEST[LAT:" + dest[0] + ", LON:" + dest[1] + "], ";
 
         if (scanMode) {
             switch (name) {
@@ -203,31 +187,31 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    //receives grid location as string & parses to appropriate type
-    void receive_from_M () {
-        String string_auto_mode = fromMaster.substring(fromMaster.indexOf("AUTOMODE"), fromMaster.indexOf("GOTO")),
-                string_coords = fromMaster.substring(fromMaster.indexOf("GOTO"), fromMaster.length());
+    // receives string from master and assigns data to variables
+    void receive_from_M (String data) {
+        String string_auto_mode = data.substring(data.indexOf("AUTOMODE"), data.indexOf("SCANMODE")),
+                string_scan_mode= data.substring(data.indexOf("SCANMODE"), data.indexOf("DEST")),
+                string_coords = data.substring(data.indexOf("DEST"), data.length());
 
         autoMode = string_auto_mode.contains("true");
+        scanMode = string_scan_mode.contains("true");
         destinationCoords = getCoords(string_coords);
     }
 
-    //send info to GPS of current location + obstacles and mannequins founds + status of grid search
-    void send_to_M () {
+    // sends minion's data to master
+    void send_to_M (Robot name, double[] location, Boolean foundMann, double[] lgps) {
+
+        // Add robot name
+        toMaster = toMaster + "NAME: " + name;
+
         //REPLACE ## later w/ curr_loc.getLatitude & curr_loc.getLongitude
-        toMaster = toMaster + "GPS[LAT:" + gps_coords[0] + ", LON:" + gps_coords[1] + "], ";
+        toMaster = toMaster + "GPS[LAT:" + location[0] + ", LON:" + location[1] + "], ";
 
-        //add searching status
-        toMaster = toMaster + "SEARCHING: " + hasGPSCoords;
+        // Add mannequin status
+        toMaster = toMaster + "MAN: " + foundMann;
 
-        //add mannequin status
-        toMaster = toMaster + "MAN: " + isMannequinFound;
-
-        //add LIDAR status
-        toMaster = toMaster + "LIDAR: " + hasLIDAR;
-
-        //add GPS coordinates of victim seen by LIDAR
-        toMaster = toMaster + "LGPS[LAT:" + lidarGPS[0] + ", LON:" + lidarGPS[1] + "], ";
+        // Add GPS coordinates of victim seen by LIDAR
+        toMaster = toMaster + "LGPS[LAT:" + lgps[0] + ", LON:" + lgps[1] + "], ";
     }
 
     double[] getCoords (String str) {
@@ -255,33 +239,34 @@ public class MainActivity extends AppCompatActivity {
         return coords;
     }
 
-    class Robot {
+    private class Robot {
         Robots name;
         double[] location = new double[2];
         boolean isMannequinFound = false;
         boolean isSearching = false;
         boolean hasLidar = false;
         double[] destination = new double[2];
+        double[] lgps = new double[2];
 
-        public Robot(Robots name, double[] location, boolean hasLidar) {
+        Robot(Robots name, double[] location, boolean hasLidar) {
             this.name = name;
             this.location = location;
             this.hasLidar = hasLidar;
         }
 
-        public Robots getName () {
+        Robots getName () {
             return name;
         }
 
-        public double[] getRobotLocation() {
+        double[] getRobotLocation() {
             return location;
         }
 
-        public void setLocation (double[] location) {
+        void setLocation (double[] location) {
             this.location = location;
         }
 
-        public void setDestination (double[] destination) {
+        void setDestination (double[] destination) {
             this.destination = destination;
             this.isSearching = true;
         }
@@ -294,12 +279,18 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
-        public boolean getStatus() {
+        boolean getStatus() {
             return this.isMannequinFound;
         }
 
-        public boolean getIsSearching() {
+        boolean getIsSearching() {
             return this.isSearching;
         }
+
+        void setObjectLocation (double[] lidarGPS) {
+            this.lgps = lidarGPS;
+        }
+
+        double[] getObjectLocation () { return lgps; }
     }
 }
